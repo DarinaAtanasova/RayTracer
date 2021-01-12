@@ -9,7 +9,7 @@
 using std::shared_ptr;
 using std::make_shared;
 
-class hittable_list : hittable {
+class hittable_list : public hittable {
 	public:
 		std::vector<shared_ptr<hittable>> objects;
 

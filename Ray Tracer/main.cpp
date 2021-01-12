@@ -8,7 +8,7 @@
 #include<fstream>
 
 
-color ray_color(ray r, hittable_list& world) {
+color ray_color(ray r, hittable& world) {
     hit_record rec;
     if (world.hit(r, 0, infinity, rec)) {
         return 0.5 * (rec.normal + color(1, 1, 1));
