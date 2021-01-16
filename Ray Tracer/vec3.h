@@ -50,6 +50,14 @@ class vec3 {
 			return sqrt(length_squared());
 		}
 
+		inline static vec3 random() {
+			return vec3(random_double(), random_double(), random_double());
+		}
+
+		inline static vec3 random(double min, double max) {
+			return vec3(random_double(min, max), random_double(min, max), random_double(min, max));
+		}
+
 };
 
 using point3 = vec3;
@@ -97,6 +105,19 @@ inline vec3 cross(const vec3& v1, const vec3& v2) {
 
 inline vec3 unit_vector(vec3 v) {
 	return v / v.length();
+}
+
+vec3 random_in_unit_sphere() {
+	while (true) {
+		vec3 random_p = vec3::random(-1, 1);
+		if (random_p.length_squared() >= 1) {
+			// p > 1 - outside sphere
+			// p = 1 - on the sphere
+			// p < 1 - inside sphere
+			continue;
+		}
+		return random_p;
+	}
 }
 
 #endif // !VEC3_H
