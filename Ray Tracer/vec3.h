@@ -6,6 +6,9 @@
 
 using std::sqrt;
 
+inline double random_double();
+inline double random_double(double, double);
+
 class vec3 {
 	public: 
 		double e[3];
