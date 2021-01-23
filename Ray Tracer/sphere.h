@@ -9,10 +9,12 @@ class sphere : public hittable {
 	public:
 		point3 center;
 		double radius;
+		shared_ptr<material> mat_ptr;
 
 	public:
 		sphere(){}
-		sphere(point3 center, double radius) : center(center), radius(radius) {};
+		sphere(point3 center, double radius, shared_ptr<material> m) : 
+			center(center), radius(radius), mat_ptr(m) {};
 
 		virtual bool hit(ray& ray, double t_min, double t_max, hit_record& rec) const override;
 };
@@ -46,6 +48,7 @@ bool sphere::hit(ray& ray, double t_min, double t_max, hit_record& rec) const {
 	rec.p = ray.at(rec.t);
 	vec3 outward_normal = (rec.p - center) / radius;
 	rec.set_face_normal(ray, outward_normal);
+	rec.mat_ptr = mat_ptr;
 
 	return true;
 }
