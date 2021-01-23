@@ -110,7 +110,7 @@ inline vec3 unit_vector(vec3 v) {
 	return v / v.length();
 }
 
-vec3 random_in_unit_sphere() {
+inline vec3 random_in_unit_sphere() {
 	while (true) {
 		vec3 random_p = vec3::random(-1, 1);
 		if (random_p.length_squared() >= 1) {
@@ -121,6 +121,10 @@ vec3 random_in_unit_sphere() {
 		}
 		return random_p;
 	}
+}
+
+vec3 random_unit_vector() {
+	return unit_vector(random_in_unit_sphere());
 }
 
 #endif // !VEC3_H
