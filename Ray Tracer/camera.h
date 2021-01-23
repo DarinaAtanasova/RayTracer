@@ -4,7 +4,7 @@
 #include "utility_functions.h"
 
 class camera {
-	public:
+	private:
 		point3 origin;
 		point3 lower_left_corner;
 		vec3 horizontal;
