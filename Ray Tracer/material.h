@@ -51,5 +51,26 @@ class metal : public material {
 		}
 };
 
+class dielectric : public material {
+	public:
+		double index_of_refraction;
+
+	public:
+		dielectric(double ir) : index_of_refraction(ir) {}
+
+		virtual bool scatter(
+			ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
+		)const override {
+			attenuation = color(1, 1, 1);
+			double refraction_ratio = rec.front_face ? (1.0 / index_of_refraction) : index_of_refraction;
+			
+			vec3 unit_direction = unit_vector(r_in.direction());
+			vec3 refracted = refract(unit_direction, rec.normal, refraction_ratio);
+
+			scattered = ray(rec.p, refracted);
+			return true;
+		}
+};
+
 #endif // !MATERIAL_H
 
