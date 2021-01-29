@@ -11,19 +11,19 @@ void write_color(std::ostream& out, color pixel_color, int samples_per_pixel) {
     auto b = pixel_color.z();
 
     // Divide the color by the number of samples
-    auto scale = 1 / samples_per_pixel;
-    /*r = sqrt(scale * r);
+    auto scale = 1.0 / samples_per_pixel;
+    r = sqrt(scale * r);
     g = sqrt(scale * g);
-    b = sqrt(scale * b);*/
+    b = sqrt(scale * b);
 
     // Write the translated [0,255] value of each color component.
-    out << static_cast<int>(255.999 * r) << ' '
+    /*out << static_cast<int>(255.999 * r) << ' '
         << static_cast<int>(255.999 * g) << ' '
-        << static_cast<int>(255.999 * b) << '\n';
+        << static_cast<int>(255.999 * b) << '\n';*/
 
-    /*out << static_cast<int>(256 * clamp(r, 0.0, 0.999)) << ' '
+    out << static_cast<int>(256 * clamp(r, 0.0, 0.999)) << ' '
         << static_cast<int>(256 * clamp(g, 0.0, 0.999)) << ' '
-        << static_cast<int>(256 * clamp(b, 0.0, 0.999)) << '\n';*/
+        << static_cast<int>(256 * clamp(b, 0.0, 0.999)) << '\n';
 }
 
 #endif // !COLOR_H
