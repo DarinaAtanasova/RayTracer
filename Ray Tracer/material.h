@@ -2,6 +2,7 @@
 #define MATERIAL_H
 
 #include "utility_functions.h"
+#include "texture.h"
 
 struct hit_record;
 
@@ -10,6 +11,10 @@ class material {
 		virtual bool scatter(
 			ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
 		)const = 0;
+
+		virtual color emitted(double u, double v, const point3& p) const {
+			return color(0, 0, 0);
+		}
 };
 
 class lambertian : public material {
@@ -87,6 +92,25 @@ class dielectric : public material {
 
 			scattered = ray(rec.p, direction);
 			return true;
+		}
+};
+
+class diffuse_light : public material {
+	public:
+		shared_ptr<texture> emit;
+		diffuse_light(color c) : emit(make_shared<solid_color>(c)) {}
+
+	public:
+		diffuse_light(shared_ptr<texture> a) :emit(a) {}
+		
+		virtual bool scatter(
+			ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
+		)const override {
+			return false;
+		}
+
+		virtual color emitted(double u, double v, const point3& p) const override {
+			return emit->value(u, v, p);
 		}
 };
 
