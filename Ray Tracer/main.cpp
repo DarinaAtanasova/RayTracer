@@ -7,10 +7,13 @@
 #include "material.h"
 #include "cube.h"
 
+//Embree
 #include "rtcore.h"
 
 #include <iostream>
-#include<fstream>
+#include <fstream>
+
+#include "Mesh.h"
 
 
 // Returns the color of the background
@@ -30,7 +33,6 @@ color ray_color(ray r, hittable& world, int depth) {
             return attenuation * ray_color(scattered, world, depth - 1);
         }
         return color(1, 0, 0);
-        
     }
 
     vec3 unit_direction = unit_vector(r.direction());
@@ -38,10 +40,53 @@ color ray_color(ray r, hittable& world, int depth) {
     return (1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0);
 }
 
+struct Vertex {
+    float x, y, z;
+};
+
+struct Triangle {
+    int v0, v1, v2;
+};
+
+
 int main() {
+    Mesh mesh2;
+    Mesh mesh3;
+    loadMesh("./3D objects/bunny.obj", mesh2);
+    loadMesh("./3D objects/plane.obj", mesh3);
+    int triangles = mesh2.num_triangles;
+    auto vertex_data = mesh2.getVertexData();
+
+    //  Embree
+
+     // Inititiate device and scene
+    RTCDevice device = rtcNewDevice("");
+    RTCScene scene = rtcNewScene(device);
+
+    // Create a new geometry for the triangle
+    RTCGeometry mesh = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
+    Vertex* vertices = (Vertex*)rtcSetNewGeometryBuffer(
+        mesh, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(Vertex), mesh2.num_vertices);
+    memcpy(vertices, vertex_data, sizeof(Vertex) * mesh2.num_vertices);
+
+    int* indices = (int*)rtcSetNewGeometryBuffer(
+        mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_INT3, sizeof(int) * 3, mesh2.num_triangles);
+    int * vertex_indices = mesh2.getVertexIndices();
+    memcpy(indices, vertex_indices, sizeof(int) * 3 * mesh2.num_triangles);
+
+
+    // Commit geometry to the scene
+    rtcCommitGeometry(mesh);
+    unsigned int geomID = rtcAttachGeometry(scene, mesh);
+    rtcReleaseGeometry(mesh);
+    rtcCommitScene(scene);
+
     RTCIntersectContext context;
     rtcInitIntersectContext(&context);
 
+    // Perform ray intersection
+    //rtcIntersect1(scene, &context, RTCRayHit_(r));
+    rtcReleaseScene(scene);
 
     // Image
 
@@ -57,17 +102,17 @@ int main() {
     hittable_list world;
 
     auto material_ground = make_shared<lambertian>(color(0.8, 0.8, 0.0));
-    auto material_center = make_shared<lambertian>(color(1, 0, 0));
+    auto material_center = make_shared<lambertian>(color(0.1, 0.4, 0.7));
     auto material_left = make_shared<dielectric>(1.5);
     auto material_right = make_shared<metal>(color(0.8, 0.6, 0.2), 0.5);
 
     world.add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
-    //world.add(make_shared<cube>(point3(0.0, 0.0, -1.0), 0.5, material_center));
-    //world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
+    world.add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, material_center));
+    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_right));
     //world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
-    //world.add(make_shared<cube>(point3(1.0, 0.0, -1.0), 0.5, material_center));
+    world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_left));
 
-    world.add(make_shared<cube>(point3(0, 0.0, -1.0), 0.5, material_center));
+    //world.add(make_shared<cube>(point3(0, 0.0, -1.0), 0.5, material_center));
 
     //Camera
     camera camera(point3(0, 0, 0), point3(0, 0, -1), vec3(0, -1, 0), 100, aspect_ratio);
@@ -84,14 +129,89 @@ int main() {
             for (int s = 0; s < samples_per_pixel; ++s) {
                 auto u = (i + random_double()) / (image_width - 1);
                 auto v = (j + random_double()) / (image_height - 1);
-                ray r = camera.get_ray(u, v);
-                pixel_color += ray_color(r, world, max_depth);
+                ray R = camera.get_ray(u, v);
+                R.dir = unit_vector(R.dir);
+                //pixel_color += ray_color(r, world, max_depth);
+
+                RTCRayHit rh;
+                RTCRay &r = rh.ray;
+                r.org_x = R.orig.x();
+                r.org_y = R.orig.y();
+                r.org_z = R.orig.z();
+                r.tnear = 0;
+                r.dir_x = R.dir.x();
+                r.dir_y = R.dir.y();
+                r.dir_z = R.dir.z();
+                r.time = 0;
+                r.tfar = 0;
+                r.mask = -1;
+                r.id = 0;
+                r.flags = 0;
+
+                // Perform ray intersection
+                rtcIntersect1(scene, &context, &rh);
+                if (rh.hit.geomID == RTC_INVALID_GEOMETRY_ID) {
+                    pixel_color += color(1, 0, 0);
+                }
+                else {
+                    pixel_color += color(0, 1, 0);
+                }
+
             }
             write_color(file, pixel_color, samples_per_pixel);
         }
     }
 
+    /*for (int j = image_height - 1; j >= 0; --j) {
+        std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
+        for (int i = 0; i < image_width; ++i) {
+            color pixel_color(0, 0, 0);
+            for (int s = 0; s < samples_per_pixel; ++s) {
+                auto u = (i + random_double()) / (image_width - 1);
+                auto v = (j + random_double()) / (image_height - 1);
+                ray r = camera.get_ray(u, v);
+                pixel_color += ray_color(r, world, max_depth);
+            }
+            write_color(file, pixel_color, samples_per_pixel);
+        }
+    }*/
+
+
+
     file.close();
     std::cerr << "\nDone.\n";
     system("pause");
 }
+
+
+void addTriangle(RTCDevice& device, RTCScene& scene)
+{
+    // Create a new geometry for the triangle
+    RTCGeometry mesh = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
+    Vertex* vertices = (Vertex*)rtcSetNewGeometryBuffer(
+        mesh, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(Vertex), 3);
+
+    // Define the vertices
+    vertices[0].x = -1.0f;
+    vertices[0].y = -1.0f;
+    vertices[0].z = -2.0f;
+    vertices[1].x = 0.0f;
+    vertices[1].y = 1.0f;
+    vertices[1].z = -2.0f;
+    vertices[2].x = 1.0f;
+    vertices[2].y = -1.0f;
+    vertices[2].z = -2.0f;
+
+    // Assign the vertices to the geometry buffer
+    Triangle* triangles = (Triangle*)rtcSetNewGeometryBuffer(
+        mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(Triangle), 1);
+    triangles[0].v0 = 2;
+    triangles[0].v1 = 0;
+    triangles[0].v2 = 1;
+
+    // Commit geometry to the mesh
+    rtcCommitGeometry(mesh);
+    rtcAttachGeometry(scene, mesh);
+    rtcReleaseGeometry(mesh);
+}
+
