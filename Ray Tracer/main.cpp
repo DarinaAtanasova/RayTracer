@@ -16,29 +16,7 @@
 #include "Mesh.h"
 
 
-// Returns the color of the background
-color ray_color(ray r, hittable& world, int depth) {
-    hit_record rec;
-
-    // If we go over the ray bounce limit (depth), no more light is gathered
-    if (depth <= 0) {
-        return color(0, 0, 0);
-    }
-
-    //Ignoring hits very near 0
-    if (world.hit(r, 0.001, infinity, rec)) {
-        ray scattered;
-        color attenuation;
-        if (rec.mat_ptr->scatter(r, rec, attenuation, scattered)) {
-            return attenuation * ray_color(scattered, world, depth - 1);
-        }
-        return color(1, 0, 0);
-    }
-
-    vec3 unit_direction = unit_vector(r.direction());
-    auto t = 0.5 * (unit_direction.y() + 1.0);
-    return (1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0);
-}
+auto material_center = make_shared<lambertian>(color(0.1, 0.4, 0.7));
 
 struct Vertex {
     float x, y, z;
@@ -47,6 +25,84 @@ struct Vertex {
 struct Triangle {
     int v0, v1, v2;
 };
+
+point3 make_point(Vertex v) {
+    point3 p;
+    p.e[0] = v.x;
+    p.e[1] = v.y;
+    p.e[2] = v.z;
+    return p;
+}
+
+// Returns the color of the background
+color ray_color(ray &R, hittable& world, int depth, RTCScene &scene, Mesh &mesh) {
+    hit_record rec;
+
+    // If we go over the ray bounce limit (depth), no more light is gathered
+    if (depth <= 0) {
+        return color(0, 0, 0);
+    }
+
+    RTCIntersectContext context;
+    rtcInitIntersectContext(&context);
+
+    RTCRayHit rh;
+    RTCRay& r = rh.ray;
+    r.org_x = R.orig.x();
+    r.org_y = R.orig.y();
+    r.org_z = R.orig.z();
+    r.tnear = 0;
+    r.dir_x = R.dir.x();
+    r.dir_y = R.dir.y();
+    r.dir_z = R.dir.z();
+    r.tfar = std::numeric_limits<float>::infinity();
+    r.mask = -1;
+    r.flags = 0;
+
+    rh.hit.geomID = RTC_INVALID_GEOMETRY_ID;
+    rh.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
+
+    // Perform ray intersection
+    rtcIntersect1(scene, &context, &rh);
+    if (rh.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
+        Triangle* triangles = (Triangle*)mesh.getVertexIndices();
+        Triangle t = triangles[rh.hit.primID];
+        Vertex* vertices = (Vertex*)mesh.getVertexData();
+        point3 v0 = make_point(vertices[t.v0]);
+        point3 v1 = make_point(vertices[t.v1]);
+        point3 v2 = make_point(vertices[t.v2]);
+        vec3 ab = v1 - v0;
+        vec3 ac = v2 - v0;
+        rec.p = v0 + (ab * rh.hit.u) + (ac * rh.hit.v);
+        rec.normal = vec3(rh.hit.Ng_x, rh.hit.Ng_y, rh.hit.Ng_z);
+        rec.mat_ptr = material_center;
+        rec.t = (rec.p - R.origin()).length();
+        ray scattered;
+        color attenuation;
+        if (rec.mat_ptr->scatter(R, rec, attenuation, scattered)) {
+            return attenuation * ray_color(scattered, world, depth - 1, scene, mesh);
+        }
+        return color(0, 1, 0);
+    }
+    
+
+
+    //Ignoring hits very near 0
+    /*if (world.hit(R, 0.001, infinity, rec)) {
+        ray scattered;
+        color attenuation;
+        if (rec.mat_ptr->scatter(R, rec, attenuation, scattered)) {
+            return attenuation * ray_color(scattered, world, depth - 1, scene);
+        }
+        return color(1, 0, 0);
+    }*/
+
+    vec3 unit_direction = unit_vector(R.direction());
+    auto t = 0.5 * (unit_direction.y() + 1.0);
+    return (1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0);
+}
+
+
 
 
 int main() {
@@ -81,8 +137,8 @@ int main() {
     rtcReleaseGeometry(mesh);
     rtcCommitScene(scene);
 
-    RTCIntersectContext context;
-    rtcInitIntersectContext(&context);
+    /*RTCIntersectContext context;
+    rtcInitIntersectContext(&context);*/
   
 
     // Image
@@ -99,7 +155,7 @@ int main() {
     hittable_list world;
 
     auto material_ground = make_shared<lambertian>(color(0.8, 0.8, 0.0));
-    auto material_center = make_shared<lambertian>(color(0.1, 0.4, 0.7));
+    /*auto material_center = make_shared<lambertian>(color(0.1, 0.4, 0.7));*/
     auto material_left = make_shared<dielectric>(1.5);
     auto material_right = make_shared<metal>(color(0.8, 0.6, 0.2), 0.5);
 
@@ -129,33 +185,9 @@ int main() {
                 auto v = (j + random_double()) / (image_height - 1);
                 ray R = camera.get_ray(u, v);
                 R.dir = unit_vector(R.dir);
-                //pixel_color += ray_color(r, world, max_depth);
+                pixel_color += ray_color(R, world, max_depth, scene, mesh2);
 
-                RTCRayHit rh;
-                RTCRay &r = rh.ray;
-                r.org_x = R.orig.x();
-                r.org_y = R.orig.y();
-                r.org_z = R.orig.z();
-                r.tnear = 0;
-                r.dir_x = R.dir.x();
-                r.dir_y = R.dir.y();
-                r.dir_z = R.dir.z();
-                r.tfar = std::numeric_limits<float>::infinity();
-                r.mask = -1;
-                r.flags = 0;
-
-                rh.hit.geomID = RTC_INVALID_GEOMETRY_ID;
-                rh.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
-
-                // Perform ray intersection
-                rtcIntersect1(scene, &context, &rh);
-                if (rh.hit.geomID == RTC_INVALID_GEOMETRY_ID) {
-                    pixel_color += color(1, 0, 0);
-                }
-                else {
-                    pixel_color += color(0, 1, 0);
-                }
-
+                
             }
             write_color(file, pixel_color, samples_per_pixel);
         }
