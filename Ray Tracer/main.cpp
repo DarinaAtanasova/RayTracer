@@ -70,7 +70,7 @@ int main() {
     memcpy(vertices, vertex_data, sizeof(Vertex) * mesh2.num_vertices);
 
     int* indices = (int*)rtcSetNewGeometryBuffer(
-        mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_INT3, sizeof(int) * 3, mesh2.num_triangles);
+        mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(int) * 3, mesh2.num_triangles);
     int * vertex_indices = mesh2.getVertexIndices();
     memcpy(indices, vertex_indices, sizeof(int) * 3 * mesh2.num_triangles);
 
@@ -83,10 +83,7 @@ int main() {
 
     RTCIntersectContext context;
     rtcInitIntersectContext(&context);
-
-    // Perform ray intersection
-    //rtcIntersect1(scene, &context, RTCRayHit_(r));
-    rtcReleaseScene(scene);
+  
 
     // Image
 
@@ -115,7 +112,8 @@ int main() {
     //world.add(make_shared<cube>(point3(0, 0.0, -1.0), 0.5, material_center));
 
     //Camera
-    camera camera(point3(0, 0, 0), point3(0, 0, -1), vec3(0, -1, 0), 100, aspect_ratio);
+    camera camera(point3(1, 0, 1), point3(0, 0, 0), vec3(0, -1, 0), 20, aspect_ratio);
+    //camera camera(point3(0, 0, -9), point3(0, 0, -1), vec3(0, -1, 0), 100, aspect_ratio);
 
     // Render
     std::ofstream file("image.ppm", std::ios::out);
@@ -142,11 +140,12 @@ int main() {
                 r.dir_x = R.dir.x();
                 r.dir_y = R.dir.y();
                 r.dir_z = R.dir.z();
-                r.time = 0;
-                r.tfar = 0;
+                r.tfar = std::numeric_limits<float>::infinity();
                 r.mask = -1;
-                r.id = 0;
                 r.flags = 0;
+
+                rh.hit.geomID = RTC_INVALID_GEOMETRY_ID;
+                rh.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
 
                 // Perform ray intersection
                 rtcIntersect1(scene, &context, &rh);
@@ -177,41 +176,10 @@ int main() {
     }*/
 
 
+    rtcReleaseScene(scene);
+    rtcReleaseDevice(device);
 
     file.close();
     std::cerr << "\nDone.\n";
     system("pause");
 }
-
-
-void addTriangle(RTCDevice& device, RTCScene& scene)
-{
-    // Create a new geometry for the triangle
-    RTCGeometry mesh = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
-    Vertex* vertices = (Vertex*)rtcSetNewGeometryBuffer(
-        mesh, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(Vertex), 3);
-
-    // Define the vertices
-    vertices[0].x = -1.0f;
-    vertices[0].y = -1.0f;
-    vertices[0].z = -2.0f;
-    vertices[1].x = 0.0f;
-    vertices[1].y = 1.0f;
-    vertices[1].z = -2.0f;
-    vertices[2].x = 1.0f;
-    vertices[2].y = -1.0f;
-    vertices[2].z = -2.0f;
-
-    // Assign the vertices to the geometry buffer
-    Triangle* triangles = (Triangle*)rtcSetNewGeometryBuffer(
-        mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(Triangle), 1);
-    triangles[0].v0 = 2;
-    triangles[0].v1 = 0;
-    triangles[0].v2 = 1;
-
-    // Commit geometry to the mesh
-    rtcCommitGeometry(mesh);
-    rtcAttachGeometry(scene, mesh);
-    rtcReleaseGeometry(mesh);
-}
-
