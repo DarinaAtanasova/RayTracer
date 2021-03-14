@@ -16,23 +16,8 @@
 #include "Mesh.h"
 
 
-auto material_center = make_shared<lambertian>(color(0.1, 0.4, 0.7));
+auto material_bunny = make_shared<lambertian>(color(0.5, 0.3, 0.0));
 
-struct Vertex {
-    float x, y, z;
-};
-
-struct Triangle {
-    int v0, v1, v2;
-};
-
-point3 make_point(Vertex v) {
-    point3 p;
-    p.e[0] = v.x;
-    p.e[1] = v.y;
-    p.e[2] = v.z;
-    return p;
-}
 
 // Returns the color of the background
 color ray_color(ray &R, hittable& world, int depth, RTCScene &scene, Mesh &mesh) {
@@ -75,8 +60,9 @@ color ray_color(ray &R, hittable& world, int depth, RTCScene &scene, Mesh &mesh)
         vec3 ac = v2 - v0;
         rec.p = v0 + (ab * rh.hit.u) + (ac * rh.hit.v);
         rec.normal = vec3(rh.hit.Ng_x, rh.hit.Ng_y, rh.hit.Ng_z);
-        rec.mat_ptr = material_center;
+        rec.mat_ptr = material_bunny;
         rec.t = (rec.p - R.origin()).length();
+
         ray scattered;
         color attenuation;
         if (rec.mat_ptr->scatter(R, rec, attenuation, scattered)) {
@@ -86,16 +72,15 @@ color ray_color(ray &R, hittable& world, int depth, RTCScene &scene, Mesh &mesh)
     }
     
 
-
     //Ignoring hits very near 0
-    /*if (world.hit(R, 0.001, infinity, rec)) {
+    if (world.hit(R, 0.001, infinity, rec)) {
         ray scattered;
         color attenuation;
         if (rec.mat_ptr->scatter(R, rec, attenuation, scattered)) {
-            return attenuation * ray_color(scattered, world, depth - 1, scene);
+            return attenuation * ray_color(scattered, world, depth - 1, scene, mesh);
         }
-        return color(1, 0, 0);
-    }*/
+        return color(0, 0, 0);
+    }
 
     vec3 unit_direction = unit_vector(R.direction());
     auto t = 0.5 * (unit_direction.y() + 1.0);
@@ -104,14 +89,12 @@ color ray_color(ray &R, hittable& world, int depth, RTCScene &scene, Mesh &mesh)
 
 
 
-
 int main() {
-    Mesh mesh2;
-    Mesh mesh3;
-    loadMesh("./3D objects/bunny.obj", mesh2);
-    loadMesh("./3D objects/plane.obj", mesh3);
-    int triangles = mesh2.num_triangles;
-    auto vertex_data = mesh2.getVertexData();
+    // Open obj file (3D model)
+    Mesh bunny_mesh;
+    loadMesh("./3D objects/bunny.obj", bunny_mesh);
+    int triangles = bunny_mesh.num_triangles;
+    auto vertex_data = bunny_mesh.getVertexData();
 
     //  Embree
 
@@ -119,17 +102,15 @@ int main() {
     RTCDevice device = rtcNewDevice("");
     RTCScene scene = rtcNewScene(device);
 
-    // Create a new geometry for the triangle
     RTCGeometry mesh = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
     Vertex* vertices = (Vertex*)rtcSetNewGeometryBuffer(
-        mesh, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(Vertex), mesh2.num_vertices);
-    memcpy(vertices, vertex_data, sizeof(Vertex) * mesh2.num_vertices);
+        mesh, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(Vertex), bunny_mesh.num_vertices);
+    memcpy(vertices, vertex_data, sizeof(Vertex) * bunny_mesh.num_vertices);
 
     int* indices = (int*)rtcSetNewGeometryBuffer(
-        mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(int) * 3, mesh2.num_triangles);
-    int * vertex_indices = mesh2.getVertexIndices();
-    memcpy(indices, vertex_indices, sizeof(int) * 3 * mesh2.num_triangles);
-
+        mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(int) * 3, bunny_mesh.num_triangles);
+    int * vertex_indices = bunny_mesh.getVertexIndices();
+    memcpy(indices, vertex_indices, sizeof(int) * 3 * bunny_mesh.num_triangles);
 
     // Commit geometry to the scene
     rtcCommitGeometry(mesh);
@@ -137,10 +118,7 @@ int main() {
     rtcReleaseGeometry(mesh);
     rtcCommitScene(scene);
 
-    /*RTCIntersectContext context;
-    rtcInitIntersectContext(&context);*/
-  
-
+    
     // Image
 
     const auto aspect_ratio = 16.0 / 9.0;
@@ -155,25 +133,22 @@ int main() {
     hittable_list world;
 
     auto material_ground = make_shared<lambertian>(color(0.8, 0.8, 0.0));
-    /*auto material_center = make_shared<lambertian>(color(0.1, 0.4, 0.7));*/
+    auto material_center = make_shared<lambertian>(color(0.1, 0.4, 0.7));
     auto material_left = make_shared<dielectric>(1.5);
     auto material_right = make_shared<metal>(color(0.8, 0.6, 0.2), 0.5);
 
     world.add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
     world.add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, material_center));
     world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_right));
-    //world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
     world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_left));
 
     //world.add(make_shared<cube>(point3(0, 0.0, -1.0), 0.5, material_center));
 
     //Camera
-    camera camera(point3(1, 0, 1), point3(0, 0, 0), vec3(0, -1, 0), 20, aspect_ratio);
-    //camera camera(point3(0, 0, -9), point3(0, 0, -1), vec3(0, -1, 0), 100, aspect_ratio);
+    camera camera(point3(0, 0.5, 5), point3(0, 0, 0), vec3(0, -1, 0), 20, aspect_ratio); // front camera
 
     // Render
     std::ofstream file("image.ppm", std::ios::out);
-    //if(!file){}
     file << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
     for (int j = image_height - 1; j >= 0; --j) {
@@ -185,28 +160,11 @@ int main() {
                 auto v = (j + random_double()) / (image_height - 1);
                 ray R = camera.get_ray(u, v);
                 R.dir = unit_vector(R.dir);
-                pixel_color += ray_color(R, world, max_depth, scene, mesh2);
-
-                
+                pixel_color += ray_color(R, world, max_depth, scene, bunny_mesh);
             }
             write_color(file, pixel_color, samples_per_pixel);
         }
     }
-
-    /*for (int j = image_height - 1; j >= 0; --j) {
-        std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
-        for (int i = 0; i < image_width; ++i) {
-            color pixel_color(0, 0, 0);
-            for (int s = 0; s < samples_per_pixel; ++s) {
-                auto u = (i + random_double()) / (image_width - 1);
-                auto v = (j + random_double()) / (image_height - 1);
-                ray r = camera.get_ray(u, v);
-                pixel_color += ray_color(r, world, max_depth);
-            }
-            write_color(file, pixel_color, samples_per_pixel);
-        }
-    }*/
-
 
     rtcReleaseScene(scene);
     rtcReleaseDevice(device);

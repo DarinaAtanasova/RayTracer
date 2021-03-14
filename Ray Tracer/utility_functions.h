@@ -50,4 +50,21 @@ inline double clamp(double x, double min, double max) {
 	return x;
 }
 
+struct Vertex {
+	float x, y, z;
+};
+
+struct Triangle {
+	int v0, v1, v2;
+};
+
+// Cast a Vertex to point3
+point3 make_point(Vertex v) {
+	point3 p;
+	p.e[0] = v.x;
+	p.e[1] = v.y;
+	p.e[2] = v.z;
+	return p;
+}
+
 #endif // !UTILITY_FUNCTIONS_H

@@ -23,7 +23,7 @@ class camera {
 			auto viewport_height = 2.0 * h;
 			auto viewport_width = aspect_ratio * viewport_height;
 
-			auto w = unit_vector(lookfrom - lookat);
+			auto w = unit_vector(lookfrom - lookat); //focal length
 			auto u = unit_vector(cross(vup, w));
 			auto v = cross(w, u);
 
