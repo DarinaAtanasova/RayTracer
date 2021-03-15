@@ -106,7 +106,7 @@ int main() {
     Vertex* vertices = (Vertex*)rtcSetNewGeometryBuffer(
         mesh, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(Vertex), bunny_mesh.num_vertices);
     memcpy(vertices, vertex_data, sizeof(Vertex) * bunny_mesh.num_vertices);
-
+        
     int* indices = (int*)rtcSetNewGeometryBuffer(
         mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(int) * 3, bunny_mesh.num_triangles);
     int * vertex_indices = bunny_mesh.getVertexIndices();
@@ -122,7 +122,7 @@ int main() {
     // Image
 
     const auto aspect_ratio = 16.0 / 9.0;
-    const int image_width = 400;
+    const int image_width = 600;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
     const int max_depth = 50;
     const int samples_per_pixel = 100;
@@ -133,19 +133,17 @@ int main() {
     hittable_list world;
 
     auto material_ground = make_shared<lambertian>(color(0.8, 0.8, 0.0));
-    auto material_center = make_shared<lambertian>(color(0.1, 0.4, 0.7));
-    auto material_left = make_shared<dielectric>(1.5);
-    auto material_right = make_shared<metal>(color(0.8, 0.6, 0.2), 0.5);
+    auto material_center = make_shared<lambertian>(color(0.5, 0.1, 1));
+    auto material_left = make_shared<metal>(color(0.5, 0.6, 0.6), 0.2);
+    auto material_right = make_shared<dielectric>(1.5);
 
     world.add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
-    world.add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, material_center));
-    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_right));
-    world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_left));
-
-    //world.add(make_shared<cube>(point3(0, 0.0, -1.0), 0.5, material_center));
+    world.add(make_shared<sphere>(point3(-2.0, 0.0, -1.0), 0.5, material_right));
+    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
+    //world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_left));
 
     //Camera
-    camera camera(point3(0, 0.5, 5), point3(0, 0, 0), vec3(0, -1, 0), 20, aspect_ratio); // front camera
+    camera camera(point3(-1, 0.5, 5), point3(-1, 0, 0), vec3(0, -1, 0), 20, aspect_ratio); // front camera
 
     // Render
     std::ofstream file("image.ppm", std::ios::out);
